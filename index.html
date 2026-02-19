@@ -777,7 +777,7 @@
 
   #actor-page {
     background: var(--paper); width: 100%; max-width: 960px;
-    min-height: 600px; box-shadow: 0 4px 28px var(--shadow);
+    box-shadow: 0 4px 28px var(--shadow);
     border-radius: 2px; padding: 48px 64px 64px; display: none;
   }
 
@@ -1651,7 +1651,7 @@
   body.debug-layout #main { outline: 3px solid red; }
   body.debug-layout .tab-panel.active { outline: 3px solid blue; background: rgba(0,0,255,0.05) !important; }
   body.debug-layout #actor-zone { outline: 3px solid green; background: rgba(0,255,0,0.05) !important; }
-  body.debug-layout #sp-zone { outline: 3px solid green; background: rgba(0,255,0,0.05) !important; }
+  body.debug-layout #sp-zone {}
   body.debug-layout #actor-panel { outline: 3px solid orange; }
   body.debug-layout #actor-script-wrap { outline: 3px solid purple; background: rgba(128,0,128,0.05) !important; }
   body.debug-layout #sp-editor-wrap { outline: 3px solid purple; background: rgba(128,0,128,0.05) !important; }
@@ -2060,7 +2060,7 @@
     <div id="sp-editor-wrap" style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:36px 24px 80px;background:var(--paper-dark);scrollbar-width:thin;scrollbar-color:var(--border) transparent;">
 
       <!-- TITLE PAGE INFO -->
-      <div id="sp-page" style="background:var(--paper);width:100%;max-width:760px;min-height:800px;box-shadow:0 4px 28px var(--shadow);border-radius:2px;padding:60px 80px 80px;font-family:'Courier New',monospace;font-size:12pt;line-height:1.7;">
+      <div id="sp-page" style="background:var(--paper);width:100%;max-width:760px;box-shadow:0 4px 28px var(--shadow);border-radius:2px;padding:60px 80px 80px;font-family:'Courier New',monospace;font-size:12pt;line-height:1.7;">
 
         <div id="sp-title-block" style="text-align:center;margin-bottom:60px;padding-bottom:30px;border-bottom:1px solid var(--border);">
           <div id="sp-title-input" contenteditable="true" spellcheck="false"
