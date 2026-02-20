@@ -3112,27 +3112,29 @@ function azStats() {
 }
 
 function azParseText(text, filename) {
-  // Parse plain text (from docx/pdf) into blocks
   const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
   const blocks = [];
-  const ACT_RE   = /^ACT\s+/i;
-  const SCENE_RE = /^(SCENE\b|INT\.|EXT\.|PROLOGUE|EPILOGUE)/i;
-  const INLINE   = /^([A-Z][A-Z0-9\s\.\-']{0,30}?)\s{2,}(.+)$/;
-  const CHARNAME = s => /^[A-Z][A-Z0-9\s\.\-']{1,35}$/.test(s) && s.length <= 40;
+  const ACT_RE      = /^ACT\s+(ONE|TWO|THREE|FOUR|FIVE|\d+)/i;
+  const SCENE_RE    = /^(INT\.|EXT\.|INT\/EXT\.|SCENE\s+\d|PROLOGUE|EPILOGUE)/i;
+  const INTERVAL_RE = /^(INTERVAL|INTERMISSION|END\s+OF\s+ACT|END\s+ACT)/i;
+  const INLINE      = /^([A-Z][A-Z0-9\s\.\-']{0,28}?)\s{2,}(.+)$/;
+  const CHAR_RE     = s => /^[A-Z][A-Z0-9\s\.\-']{0,28}$/.test(s) && s.length >= 2 && s.length <= 30;
 
   let i = 0;
   while (i < lines.length) {
     const line = lines[i++];
     if (ACT_RE.test(line)) { blocks.push({ type:'act', charName:'', content:line }); continue; }
+    if (INTERVAL_RE.test(line)) { blocks.push({ type:'interval', charName:'', content:line }); continue; }
     if (SCENE_RE.test(line)) { blocks.push({ type:'scene', charName:'', content:line }); continue; }
-    if (/^\(/.test(line)) { blocks.push({ type:'stage', charName:'', content:line.replace(/^\(|\)$/g,'').trim() }); continue; }
+    if (/^\(/.test(line) || /^\[/.test(line)) { blocks.push({ type:'stage', charName:'', content:line.replace(/^[\(\[]|[\)\]]$/g,'').trim() }); continue; }
     const m = line.match(INLINE);
-    if (m && CHARNAME(m[1].trim())) { blocks.push({ type:'dialogue', charName:m[1].trim(), content:m[2].trim() }); continue; }
-    if (CHARNAME(line) && i < lines.length && !CHARNAME(lines[i])) {
+    if (m && CHAR_RE(m[1].trim())) { blocks.push({ type:'dialogue', charName:m[1].trim(), content:m[2].trim() }); continue; }
+    if (CHAR_RE(line) && i < lines.length && !CHAR_RE(lines[i])) {
       blocks.push({ type:'dialogue', charName:line, content:lines[i++] });
       continue;
     }
-    blocks.push({ type:'stage', charName:'', content:line });
+    // Default to dialogue — easier to reclassify than to fix en masse
+    blocks.push({ type:'dialogue', charName:'', content:line });
   }
   const cast = [...new Set(blocks.filter(b=>b.type==='dialogue'&&b.charName).map(b=>b.charName))].sort();
   const title = filename ? filename.replace(/\.(docx?|pdf)$/i,'').replace(/[-_]/g,' ').trim() : 'Untitled';
@@ -3876,92 +3878,74 @@ function importConfirm() {
   }
 
   function parseTextToBlocks(text, filename) {
-  // Split into lines, preserve empty lines as paragraph breaks
   const rawLines = text.split(/\n/);
   const blocks = [];
   let playTitle = '';
 
-  // Try to grab title from filename
   if (filename) {
     playTitle = filename.replace(/\.(docx?|pdf|json)$/i, '').replace(/[-_]/g, ' ').trim();
   }
 
-  // Patterns
-  const ACT_RE    = /^ACT\s+/i;
-  const SCENE_RE  = /^(SCENE\b|INT\.|EXT\.|INT\/EXT\.|PROLOGUE|EPILOGUE)/i;
-  const STAGE_RE  = /^\(|\^\[/;
-  const INTERVAL  = /^(INTERVAL|INTERMISSION|END OF ACT|END ACT)/i;
+  // Only these patterns are confident enough to override the dialogue default
+  const ACT_RE      = /^ACT\s+(ONE|TWO|THREE|FOUR|FIVE|\d+)/i;
+  const SCENE_RE    = /^(INT\.|EXT\.|INT\/EXT\.|SCENE\s+\d|PROLOGUE|EPILOGUE)/i;
+  const INTERVAL_RE = /^(INTERVAL|INTERMISSION|END\s+OF\s+ACT|END\s+ACT)/i;
+  const BRACKET_RE  = /^\(|^\[/;
 
-  // Detect "CHARACTER NAME    dialogue text" on same line
-  // Matches: ALL-CAPS words (with spaces/numbers) followed by 2+ spaces or tab, then text
-  const INLINE_DIALOGUE = /^([A-Z][A-Z0-9\s\.\-']{0,30}?)\s{2,}(.+)$/;
-
-  // Purely all-caps short line = character name (dialogue on next line)
-  const CHAR_NAME = s => /^[A-Z][A-Z0-9\s\.\-']{0,35}$/.test(s.trim()) && s.trim().length >= 2 && s.trim().length <= 40 && !/^(ACT|SCENE|INT|EXT|END|THE|AND|FOR|WITH|THAT|THIS|FROM|THEY|WHEN|WHAT|WHERE|WHO|HOW)(\s|$)/.test(s.trim());
+  // "CHAR NAME    dialogue" on same line — 2+ spaces between name and text
+  const INLINE_RE   = /^([A-Z][A-Z0-9\s\.\-']{0,28}?)\s{2,}(.+)$/;
+  // All-caps standalone line that looks like a character name
+  const CHAR_RE     = s => /^[A-Z][A-Z0-9\s\.\-']{0,28}$/.test(s) && s.length >= 2 && s.length <= 30;
 
   let i = 0;
   while (i < rawLines.length) {
     const line = rawLines[i].trim();
     i++;
-
     if (!line) continue;
 
-    // Act heading
+    // Definite structural blocks — only match these when very confident
     if (ACT_RE.test(line)) {
-      blocks.push({ type: 'act', charName: '', content: line });
-      continue;
+      blocks.push({ type: 'act', charName: '', content: line }); continue;
     }
-
-    // Interval / intermission
-    if (INTERVAL.test(line)) {
-      blocks.push({ type: 'interval', charName: '', content: line });
-      continue;
+    if (INTERVAL_RE.test(line)) {
+      blocks.push({ type: 'interval', charName: '', content: line }); continue;
     }
-
-    // Scene / location heading
     if (SCENE_RE.test(line)) {
-      blocks.push({ type: 'scene', charName: '', content: line });
-      continue;
+      blocks.push({ type: 'scene', charName: '', content: line }); continue;
+    }
+    // Bracketed lines are clearly stage directions
+    if (BRACKET_RE.test(line)) {
+      blocks.push({ type: 'stage', charName: '', content: line.replace(/^[\(\[]|[\)\]]$/g, '').trim() }); continue;
     }
 
-    // Stage direction in brackets
-    if (/^\(/.test(line) || /^\[/.test(line)) {
-      blocks.push({ type: 'stage', charName: '', content: line.replace(/^[\(\[]|[\)\]]$/g, '').trim() });
-      continue;
-    }
-
-    // "CHAR NAME    dialogue on same line" (2+ spaces between name and text)
-    const inlineMatch = line.match(INLINE_DIALOGUE);
+    // "CHAR  dialogue text" on one line
+    const inlineMatch = line.match(INLINE_RE);
     if (inlineMatch) {
       const charPart = inlineMatch[1].trim();
       const dialoguePart = inlineMatch[2].trim();
-      // Make sure the char part looks like a character name (not a sentence)
-      if (CHAR_NAME(charPart) && dialoguePart.length > 1) {
-        blocks.push({ type: 'dialogue', charName: charPart, content: dialoguePart });
-        continue;
+      if (CHAR_RE(charPart) && dialoguePart.length > 1) {
+        blocks.push({ type: 'dialogue', charName: charPart, content: dialoguePart }); continue;
       }
     }
 
-    // All-caps line = character name, next non-empty line = dialogue
-    if (CHAR_NAME(line)) {
-      // Look ahead for dialogue
+    // All-caps line followed by non-caps line = character name + dialogue
+    if (CHAR_RE(line)) {
       let j = i;
       while (j < rawLines.length && !rawLines[j].trim()) j++;
-      const nextLine = j < rawLines.length ? rawLines[j].trim() : '';
-      if (nextLine && !CHAR_NAME(nextLine) && !ACT_RE.test(nextLine) && !SCENE_RE.test(nextLine)) {
-        blocks.push({ type: 'dialogue', charName: line, content: nextLine });
-        i = j + 1; // skip the dialogue line we just consumed
-        continue;
+      const next = j < rawLines.length ? rawLines[j].trim() : '';
+      if (next && !CHAR_RE(next) && !ACT_RE.test(next) && !SCENE_RE.test(next)) {
+        blocks.push({ type: 'dialogue', charName: line, content: next });
+        i = j + 1; continue;
       }
     }
 
-    // Everything else = stage direction (but keep it, don't discard)
-    blocks.push({ type: 'stage', charName: '', content: line });
+    // DEFAULT: treat as dialogue with no character name assigned yet.
+    // Far easier for the user to add a character name than to reclassify
+    // a whole block from stage direction to dialogue.
+    blocks.push({ type: 'dialogue', charName: '', content: line });
   }
 
-  // Extract cast from dialogue blocks
   const cast = [...new Set(blocks.filter(b => b.type === 'dialogue' && b.charName).map(b => b.charName))].sort();
-
   ingestParsed({ playTitle, playAuthor: '', cast, blocks });
 }
 
