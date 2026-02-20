@@ -1788,8 +1788,6 @@
     <button class="tb-btn" onclick="saveProject()">💾 Save</button>
     <button class="tb-btn" onclick="loadProject()">📂 Load</button>
     <button class="tb-btn primary" onclick="window.print()">🖨 Print / PDF</button>
-    <div class="sep"></div>
-    <button class="tb-btn" onclick="downloadApp()" title="Save ScriptWriter to your computer for offline use">⬇ Download App</button>
     <div id="save-indicator">Unsaved</div>
   </div>
 </div>
@@ -4082,35 +4080,6 @@ function convertBlock(block, newType) {
   initDragHandles();
   scheduleAutoSave();
   updateStats();
-}
-
-
-// ── DOWNLOAD APP ─────────────────────────────────────
-function downloadApp() {
-  const url = window.location.href.split('?')[0].split('#')[0];
-  const btn = document.querySelector('[onclick="downloadApp()"]');
-  const orig = btn ? btn.textContent : '';
-  if (btn) btn.textContent = '⏳ Downloading…';
-
-  fetch(url)
-    .then(r => {
-      if (!r.ok) throw new Error('Could not fetch page');
-      return r.text();
-    })
-    .then(html => {
-      const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'ScriptWriter.html';
-      a.click();
-      URL.revokeObjectURL(a.href);
-      if (btn) btn.textContent = '✓ Downloaded!';
-      setTimeout(() => { if (btn) btn.textContent = orig; }, 3000);
-    })
-    .catch(() => {
-      if (btn) btn.textContent = orig;
-      alert('Download failed. To save manually:\n\n1. Press Ctrl+S (or Cmd+S on Mac)\n2. Choose "Webpage, HTML Only"\n3. Save as ScriptWriter.html');
-    });
 }
 
 </script>
